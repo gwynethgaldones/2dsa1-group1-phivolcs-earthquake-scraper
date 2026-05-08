@@ -1,0 +1,1 @@
+# 2dsa1-group1-phivolcs-earthquake-scraper
