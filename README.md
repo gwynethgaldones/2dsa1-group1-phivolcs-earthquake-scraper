@@ -1,7 +1,7 @@
 # 🌏 Seismic Risk Mapping in the Philippines
-### DS4155 - Artificial Intelligence | 2DSA1 Group 1
+### 2DSA1 Group 1
 
-A fully automated, zero-cost data pipeline that scrapes live earthquake bulletins from PHIVOLCS, stores them in Google Sheets, and visualizes them on a Tableau Public dashboard — updated every 6 hours automatically.
+A fully automated, zero-cost data pipeline that scrapes live earthquake bulletins from PHIVOLCS, stores them in Google Sheets, and visualizes them on a Tableau Public dashboard which is updated every 6 hours automatically.
 
 ---
 
