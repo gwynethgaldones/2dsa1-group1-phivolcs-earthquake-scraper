@@ -1,0 +1,36 @@
+name: PHIVOLCS Earthquake Scraper
+
+on:
+  schedule:
+    - cron: "0 0,6,12,18 * * *"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write credentials.json
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
+
+      - name: Run scraper
+        run: python 2DSA1_Group1_SeismicPyCode.py
+
+      - name: Remove credentials file
+        if: always()
+        run: rm -f credentials.json
