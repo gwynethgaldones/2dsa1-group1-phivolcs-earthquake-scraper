@@ -50,7 +50,7 @@ def scrape_phivolcs():
         print("ERROR: No tables found.")
         return pd.DataFrame()
 
-    # Use the largest table
+    # Get the largest earthquake table
     main_table = max(all_tables, key=lambda t: len(t.find_all("tr")))
 
     rows = []
@@ -65,7 +65,7 @@ def scrape_phivolcs():
         if len(cells) < 6:
             continue
 
-        # Skip header rows
+        # Skip headers
         if any(h in cells[0].lower() for h in ["date", "time", "header"]):
             continue
 
@@ -98,8 +98,13 @@ def scrape_phivolcs():
 
     # Put location_detail beside location
     location_idx = df.columns.get_loc("location")
-    col = df.pop("location_detail")
-    df.insert(location_idx + 1, "location_detail", col)
+    location_detail_col = df.pop("location_detail")
+
+    df.insert(
+        location_idx + 1,
+        "location_detail",
+        location_detail_col
+    )
 
     # Add scrape timestamp
     df.insert(
@@ -117,6 +122,30 @@ def scrape_phivolcs():
     print(f"Scraped {len(df)} records.")
 
     return df
+
+
+def rebuild_sheet(sheet, df_clean):
+
+    print("Rebuilding worksheet...")
+
+    # Fully reset worksheet
+    sheet.clear()
+    sheet.resize(rows=1, cols=len(df_clean.columns))
+
+    # Write headers
+    sheet.update(
+        "A1",
+        [df_clean.columns.tolist()]
+    )
+
+    # Write rows
+    if not df_clean.empty:
+        sheet.append_rows(
+            df_clean.values.tolist(),
+            value_input_option="USER_ENTERED"
+        )
+
+    print(f"Worksheet rebuilt with {len(df_clean)} rows.")
 
 
 def upload_to_sheets(df):
@@ -139,47 +168,30 @@ def upload_to_sheets(df):
     # Convert all values to string
     df_clean = df.astype(str)
 
-    # Get existing data
     existing_data = sheet.get_all_values()
 
-    # If sheet is empty
+    # Empty sheet
     if (
         not existing_data
         or existing_data == [[]]
-        or len(existing_data) <= 1
+        or len(existing_data) == 0
     ):
 
-        print("Sheet empty. Writing fresh data...")
+        print("Empty sheet detected.")
 
-        sheet.clear()
-
-        sheet.append_row(df_clean.columns.tolist())
-
-        sheet.append_rows(
-            df_clean.values.tolist(),
-            value_input_option="USER_ENTERED"
-        )
-
-        print(f"Wrote header + {len(df_clean)} rows.")
+        rebuild_sheet(sheet, df_clean)
         return
 
     existing_headers = existing_data[0]
 
-    # Force rebuild if new column missing
-    if "location_detail" not in existing_headers:
+    expected_headers = df_clean.columns.tolist()
 
-        print("location_detail column missing. Rebuilding sheet...")
+    # Rebuild if headers mismatch
+    if existing_headers != expected_headers:
 
-        sheet.clear()
+        print("Header mismatch detected.")
 
-        sheet.append_row(df_clean.columns.tolist())
-
-        sheet.append_rows(
-            df_clean.values.tolist(),
-            value_input_option="USER_ENTERED"
-        )
-
-        print(f"Rebuilt sheet with {len(df_clean)} rows.")
+        rebuild_sheet(sheet, df_clean)
         return
 
     existing_df = pd.DataFrame(
@@ -187,26 +199,9 @@ def upload_to_sheets(df):
         columns=existing_headers
     )
 
-    # Rebuild if headers mismatch
-    if list(existing_df.columns) != list(df_clean.columns):
-
-        print("Header mismatch detected. Rebuilding sheet...")
-
-        sheet.clear()
-
-        sheet.append_row(df_clean.columns.tolist())
-
-        sheet.append_rows(
-            df_clean.values.tolist(),
-            value_input_option="USER_ENTERED"
-        )
-
-        print(f"Rebuilt sheet with {len(df_clean)} rows.")
-        return
-
-    # Prevent duplicate uploads
+    # Prevent duplicates
     existing_times = set(
-        existing_df["date_time_pst"].tolist()
+        existing_df["date_time_pst"].astype(str).tolist()
     )
 
     new_rows_df = df_clean[
@@ -214,7 +209,8 @@ def upload_to_sheets(df):
     ]
 
     if new_rows_df.empty:
-        print("No new records. Sheet is already up to date.")
+
+        print("No new records.")
         return
 
     # Append only new rows
@@ -229,6 +225,8 @@ def upload_to_sheets(df):
 if __name__ == "__main__":
 
     try:
+
+        print("Starting PHIVOLCS scraper...")
 
         df = scrape_phivolcs()
 
