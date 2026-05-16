@@ -55,6 +55,7 @@ def scrape_phivolcs():
             "location"      : cells[5] if len(cells) > 5 else "",
         })
     df = pd.DataFrame(rows)
+    df["location_detail"] = df["location"].str.extract(r"\((.*?)\)")
     if df.empty:
         print("WARNING: No rows parsed.")
         return df
