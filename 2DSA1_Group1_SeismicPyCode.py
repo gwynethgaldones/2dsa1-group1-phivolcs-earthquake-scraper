@@ -6,6 +6,12 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import urllib3
 import warnings
+from gspread_formatting import (
+    format_cell_range,
+    CellFormat,
+    TextFormat,
+    set_column_width
+)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings("ignore")
@@ -50,8 +56,10 @@ def scrape_phivolcs():
         print("ERROR: No tables found.")
         return pd.DataFrame()
 
-    # Get the largest earthquake table
-    main_table = max(all_tables, key=lambda t: len(t.find_all("tr")))
+    main_table = max(
+        all_tables,
+        key=lambda t: len(t.find_all("tr"))
+    )
 
     rows = []
 
@@ -66,7 +74,10 @@ def scrape_phivolcs():
             continue
 
         # Skip headers
-        if any(h in cells[0].lower() for h in ["date", "time", "header"]):
+        if any(
+            h in cells[0].lower()
+            for h in ["date", "time", "header"]
+        ):
             continue
 
         if cells[0] == "":
@@ -89,15 +100,16 @@ def scrape_phivolcs():
         print("WARNING: No rows parsed.")
         return df
 
-    # Extract text inside parentheses
+    # Extract location detail from parentheses
     df["location_detail"] = (
         df["location"]
         .str.extract(r"\(([^()]*)\)", expand=False)
         .fillna("")
     )
 
-    # Put location_detail beside location
+    # Move location_detail beside location
     location_idx = df.columns.get_loc("location")
+
     location_detail_col = df.pop("location_detail")
 
     df.insert(
@@ -114,36 +126,97 @@ def scrape_phivolcs():
     )
 
     # Convert numeric columns
-    df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
-    df["depth_km"] = pd.to_numeric(df["depth_km"], errors="coerce")
-    df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
+    df["latitude"] = pd.to_numeric(
+        df["latitude"],
+        errors="coerce"
+    )
+
+    df["longitude"] = pd.to_numeric(
+        df["longitude"],
+        errors="coerce"
+    )
+
+    df["depth_km"] = pd.to_numeric(
+        df["depth_km"],
+        errors="coerce"
+    )
+
+    df["magnitude"] = pd.to_numeric(
+        df["magnitude"],
+        errors="coerce"
+    )
 
     print(f"Scraped {len(df)} records.")
 
     return df
 
 
+def auto_resize_columns(sheet, df):
+
+    for idx, column in enumerate(df.columns, start=1):
+
+        max_length = max(
+            df[column].astype(str).map(len).max(),
+            len(column)
+        )
+
+        adjusted_width = (max_length + 4) * 9
+
+        set_column_width(
+            sheet,
+            chr(64 + idx),
+            adjusted_width
+        )
+
+
+def format_headers(sheet):
+
+    header_format = CellFormat(
+        textFormat=TextFormat(
+            bold=True,
+            fontSize=12
+        )
+    )
+
+    format_cell_range(
+        sheet,
+        "1:1",
+        header_format
+    )
+
+
 def rebuild_sheet(sheet, df_clean):
 
     print("Rebuilding worksheet...")
 
-    # Fully reset worksheet
+    # Clear sheet
     sheet.clear()
-    sheet.resize(rows=1, cols=len(df_clean.columns))
 
-    # Write headers
+    # Resize sheet
+    sheet.resize(
+        rows=len(df_clean) + 5,
+        cols=len(df_clean.columns)
+    )
+
+    # Upload headers
     sheet.update(
         "A1",
         [df_clean.columns.tolist()]
     )
 
-    # Write rows
+    # Upload rows
     if not df_clean.empty:
+
         sheet.append_rows(
             df_clean.values.tolist(),
             value_input_option="USER_ENTERED"
         )
+
+    # Format headers
+    format_headers(sheet)
+
+    # Resize columns
+    auto_resize_columns(sheet, df_clean)
 
     print(f"Worksheet rebuilt with {len(df_clean)} rows.")
 
@@ -165,7 +238,6 @@ def upload_to_sheets(df):
 
     sheet = client.open(SHEET_NAME).worksheet(WORKSHEET)
 
-    # Convert all values to string
     df_clean = df.astype(str)
 
     existing_data = sheet.get_all_values()
@@ -180,6 +252,7 @@ def upload_to_sheets(df):
         print("Empty sheet detected.")
 
         rebuild_sheet(sheet, df_clean)
+
         return
 
     existing_headers = existing_data[0]
@@ -192,6 +265,7 @@ def upload_to_sheets(df):
         print("Header mismatch detected.")
 
         rebuild_sheet(sheet, df_clean)
+
         return
 
     existing_df = pd.DataFrame(
@@ -199,9 +273,10 @@ def upload_to_sheets(df):
         columns=existing_headers
     )
 
-    # Prevent duplicates
     existing_times = set(
-        existing_df["date_time_pst"].astype(str).tolist()
+        existing_df["date_time_pst"]
+        .astype(str)
+        .tolist()
     )
 
     new_rows_df = df_clean[
@@ -211,13 +286,19 @@ def upload_to_sheets(df):
     if new_rows_df.empty:
 
         print("No new records.")
+
         return
 
-    # Append only new rows
+    # Append new rows
     sheet.append_rows(
         new_rows_df.values.tolist(),
         value_input_option="USER_ENTERED"
     )
+
+    # Re-apply formatting
+    format_headers(sheet)
+
+    auto_resize_columns(sheet, df_clean)
 
     print(f"Appended {len(new_rows_df)} new record(s).")
 
