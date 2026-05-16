@@ -156,27 +156,46 @@ def upload_to_sheets(df):
         print(f"Wrote header + {len(df_clean)} rows.")
         return
 
-    existing_df = pd.DataFrame(
-        existing_data[1:],
-        columns=existing_data[0]
+    existing_headers = existing_data[0]
+
+# Force rebuild if new column does not exist
+if "location_detail" not in existing_headers:
+
+    print("location_detail column missing. Rebuilding sheet...")
+
+    sheet.clear()
+
+    sheet.append_row(df_clean.columns.tolist())
+
+    sheet.append_rows(
+        df_clean.values.tolist(),
+        value_input_option="USER_ENTERED"
     )
 
-    # If headers changed, rebuild sheet
-    if list(existing_df.columns) != list(df_clean.columns):
+    print(f"Rebuilt sheet with {len(df_clean)} rows.")
+    return
 
-        print("Header mismatch detected. Rebuilding sheet...")
+existing_df = pd.DataFrame(
+    existing_data[1:],
+    columns=existing_headers
+)
 
-        sheet.clear()
+# Rebuild if headers mismatch
+if list(existing_df.columns) != list(df_clean.columns):
 
-        sheet.append_row(df_clean.columns.tolist())
+    print("Header mismatch detected. Rebuilding sheet...")
 
-        sheet.append_rows(
-            df_clean.values.tolist(),
-            value_input_option="USER_ENTERED"
-        )
+    sheet.clear()
 
-        print(f"Rebuilt sheet with {len(df_clean)} rows.")
-        return
+    sheet.append_row(df_clean.columns.tolist())
+
+    sheet.append_rows(
+        df_clean.values.tolist(),
+        value_input_option="USER_ENTERED"
+    )
+
+    print(f"Rebuilt sheet with {len(df_clean)} rows.")
+    return
 
     # Prevent duplicate uploads
     existing_times = set(
