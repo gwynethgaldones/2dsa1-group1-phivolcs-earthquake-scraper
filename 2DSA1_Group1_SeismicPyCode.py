@@ -158,64 +158,64 @@ def upload_to_sheets(df):
 
     existing_headers = existing_data[0]
 
-# Force rebuild if new column does not exist
-if "location_detail" not in existing_headers:
-
-    print("location_detail column missing. Rebuilding sheet...")
-
-    sheet.clear()
-
-    sheet.append_row(df_clean.columns.tolist())
-
-    sheet.append_rows(
-        df_clean.values.tolist(),
-        value_input_option="USER_ENTERED"
-    )
-
-    print(f"Rebuilt sheet with {len(df_clean)} rows.")
-    return
-
-existing_df = pd.DataFrame(
-    existing_data[1:],
-    columns=existing_headers
-)
-
-# Rebuild if headers mismatch
-if list(existing_df.columns) != list(df_clean.columns):
-
-    print("Header mismatch detected. Rebuilding sheet...")
-
-    sheet.clear()
-
-    sheet.append_row(df_clean.columns.tolist())
-
-    sheet.append_rows(
-        df_clean.values.tolist(),
-        value_input_option="USER_ENTERED"
-    )
-
-    print(f"Rebuilt sheet with {len(df_clean)} rows.")
-    return
-
-    # Prevent duplicate uploads
-    existing_times = set(
-        existing_df["date_time_pst"].tolist()
-    )
-
-    new_rows_df = df_clean[
-        ~df_clean["date_time_pst"].isin(existing_times)
-    ]
-
-    if new_rows_df.empty:
-        print("No new records. Sheet is already up to date.")
-        return
-
-    sheet.append_rows(
-        new_rows_df.values.tolist(),
-        value_input_option="USER_ENTERED"
-    )
-
-    print(f"Appended {len(new_rows_df)} new record(s).")
+        # Force rebuild if new column does not exist
+        if "location_detail" not in existing_headers:
+        
+            print("location_detail column missing. Rebuilding sheet...")
+        
+            sheet.clear()
+        
+            sheet.append_row(df_clean.columns.tolist())
+        
+            sheet.append_rows(
+                df_clean.values.tolist(),
+                value_input_option="USER_ENTERED"
+            )
+        
+            print(f"Rebuilt sheet with {len(df_clean)} rows.")
+            return
+        
+        existing_df = pd.DataFrame(
+            existing_data[1:],
+            columns=existing_headers
+        )
+        
+        # Rebuild if headers mismatch
+        if list(existing_df.columns) != list(df_clean.columns):
+        
+            print("Header mismatch detected. Rebuilding sheet...")
+        
+            sheet.clear()
+        
+            sheet.append_row(df_clean.columns.tolist())
+        
+            sheet.append_rows(
+                df_clean.values.tolist(),
+                value_input_option="USER_ENTERED"
+            )
+        
+            print(f"Rebuilt sheet with {len(df_clean)} rows.")
+            return
+        
+            # Prevent duplicate uploads
+            existing_times = set(
+                existing_df["date_time_pst"].tolist()
+            )
+        
+            new_rows_df = df_clean[
+                ~df_clean["date_time_pst"].isin(existing_times)
+            ]
+        
+            if new_rows_df.empty:
+                print("No new records. Sheet is already up to date.")
+                return
+        
+            sheet.append_rows(
+                new_rows_df.values.tolist(),
+                value_input_option="USER_ENTERED"
+            )
+        
+            print(f"Appended {len(new_rows_df)} new record(s).")
 
 if __name__ == "__main__":
 
